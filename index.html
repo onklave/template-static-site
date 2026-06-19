@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="An Onklave static site project." />
+    <title>App Name &middot; Onklave</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">App Name</span>
+      </a>
+      <nav class="site-nav">
+        <a href="#features">Features</a>
+        <a href="#about">About</a>
+        <a href="#get-started">Get started</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Onklave project</p>
+        <h1>App&nbsp;Name</h1>
+        <p class="lead">
+          A short, punchy intro to what this project does. Replace this copy
+          with your own &mdash; everything here is a starting point.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#get-started">Get started</a>
+          <a class="btn btn-ghost" href="#features">Learn more</a>
+        </div>
+      </section>
+
+      <section id="features" class="section">
+        <h2>Features</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Fast by default</h3>
+            <p>Built with Vite. Instant dev server, optimized production build.</p>
+          </article>
+          <article class="card">
+            <h3>Typed</h3>
+            <p>Vanilla TypeScript, no framework. Add only what you need.</p>
+          </article>
+          <article class="card">
+            <h3>Edge-served</h3>
+            <p>Builds to static files that Onklave serves straight from the edge.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="about" class="section section-muted">
+        <h2>About</h2>
+        <p class="prose">
+          This is a static-site starter template. There is no server and no
+          runtime &mdash; the build produces a folder of static assets. Edit the
+          markup, styles, and TypeScript to make it yours.
+        </p>
+      </section>
+
+      <section id="get-started" class="section">
+        <h2>Get started</h2>
+        <p class="prose">
+          Clone the template, install dependencies, and start the dev server.
+          When you are ready to ship, run the build and Onklave serves
+          <code>dist/</code> from the edge.
+        </p>
+        <pre class="code"><code>npm ci
+npm run dev      # develop locally
+npm run build    # build to dist/</code></pre>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Built with the Onklave static-site template.</p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
