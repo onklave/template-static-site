@@ -12,8 +12,9 @@ The README states: *"There is no server and no runtime … **no Dockerfile, no p
 - **AC:** No statement in the README contradicts the shipped `Dockerfile`/`server/`. A reader can correctly say how their built site is served. `npm run build` + the Docker build both still succeed.
 
 ### T2 (P1) — "Project structure" section hides the deploy machinery
-The README's structure list documents only `index.html`, `src/main.ts`, `src/style.css`, `vite.config.ts`, `tsconfig.json` — it omits `server/`, `Dockerfile`, and `.github/workflows/ci.yml` entirely. The customer can't see (or is surprised by) the files that actually ship and deploy their app.
-- **Fix:** either list the full structure including `server/`, `Dockerfile`, `.github/workflows/`, with a one-line "managed for you — you rarely edit these" note, or add a short "How it deploys" subsection.
+The README's structure list documents only `index.html`, `src/main.ts`, `src/style.css`, `vite.config.ts`, `tsconfig.json` — it omits `server/`, `Dockerfile`, and `onklave.yaml` entirely. The customer can't see (or is surprised by) the files that actually ship and deploy their app.
+- **Fix:** either list the full structure including `server/`, `Dockerfile`, `onklave.yaml`, with a one-line "managed for you — you rarely edit these" note, or add a short "How it deploys" subsection.
+- **SUPERSEDED IN PART (2026-08-04):** this originally said to document `.github/workflows/`. That file has since been DELETED from this template and must not come back. The platform builds, tests and deploys this repo in-cluster and never reads GitHub Actions; its GitHub credential cannot even push workflow files. `onklave.yaml` is the deploy declaration — document that instead. See onklave-platform `_specs/PLAN-fullstack-app-support.md` §12.10.
 - **AC:** structure documentation matches the actual repo contents.
 
 ### T3 (P2) — Go toolchain version drift
