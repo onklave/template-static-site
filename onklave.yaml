@@ -1,0 +1,20 @@
+# Onklave reads this file to build and deploy this repo: it clones the repo,
+# builds the image in-cluster from the Dockerfile below, and renders the
+# Kubernetes Deployment/Service/Ingress from the runtime and expose settings.
+#
+# GitHub Actions is NOT used — this manifest is the only place a service is
+# declared. To add a second service (an API, a worker), add another entry under
+# `services` rather than reaching for a CI workflow.
+
+version: 1
+services:
+  - name: app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    runtime:
+      port: 3000
+      healthPath: /health
+    expose:
+      enabled: true
+      path: /
