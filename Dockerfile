@@ -5,7 +5,7 @@
 # writable paths, no privileged ports.
 
 # 1. Build the static assets (-> /app/dist).
-FROM node:22-alpine AS web
+FROM node:24-alpine AS web
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -20,8 +20,9 @@ COPY server/main.go ./
 RUN CGO_ENABLED=0 go build -trimpath -o /server .
 
 # 3. Minimal runtime: just the server binary + the built assets.
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=web /app/dist /www
 COPY --from=server /server /server
+USER nonroot:nonroot
 EXPOSE 3000
 ENTRYPOINT ["/server"]
