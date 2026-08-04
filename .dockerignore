@@ -1,3 +1,11 @@
 node_modules
 dist
 .git
+
+# Never let local-only or secret-bearing files reach the build context: the web
+# stage does `COPY . .`, so anything here would be baked into that layer.
+.env
+.env.*
+*.local
+.DS_Store
+_planning
