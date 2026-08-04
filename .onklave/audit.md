@@ -40,17 +40,22 @@ with `server/` bind-mounted, so the results reflect the real build toolchain.
 | npm advisories | `npm audit` | Pass — 0 vulnerabilities (was **1 high**; see finding 1) |
 | Outdated packages | `npm outdated` | Clean — no outdated packages remain |
 | Go vet | `go vet ./...` | Pass |
-| Go tests | `go test ./...` | Pass — `?   staticserver   [no test files]` |
+| Go tests | `go test ./...` | Pass — was `?   staticserver   [no test files]`; now `ok staticserver`, 4 tests (added in the reconciliation pass, see finding 4) |
 | Go module tidy | `go mod tidy` | Pass — no change (stdlib only, no `go.sum`) |
 | Go build | `CGO_ENABLED=0 go build -trimpath -o /server .` | Pass |
 | Go vulnerabilities | `govulncheck ./...` (v1.6.0, installed via `go install golang.org/x/vuln/cmd/govulncheck@latest` in the builder container) | Pass — `No vulnerabilities found.` |
 | Image build | `docker build --no-cache -t template-static-site:audit2 .` | Pass — final image 18.6 MB |
 | Runtime smoke | `docker run --read-only --cap-drop=ALL --user 10001:10001 -p 38081:3000 …` | Pass — `/health` → `200 ok`; `/` → `200 text/html`; `/assets/*.js` → `200 text/javascript` |
 | Secret scan | `git ls-files`, `git log --all --name-only`, `git grep -Ei '(api[_-]?key\|secret\|password\|token\|BEGIN .*PRIVATE KEY\|AKIA…\|ghp_…\|xox…)'` | Pass — no credentials in the working tree or in history |
+| Directory listing suppressed (reconciliation) | `curl -o /dev/null -w '%{http_code}' :3000/assets/` and `/assets` | `404` for both — was a full HTML index of every asset |
+| Real assets still served (reconciliation) | `curl` `/assets/index-DXHSlzCY.js`, `/assets/index-DeD3ddiH.css` | `200`, `Content-Type: text/javascript; charset=utf-8` / `text/css` — MIME mapping intact |
+| Security headers (reconciliation) | `curl -I :3000/` | `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` |
+| Image rebuild + hardened run (reconciliation) | `docker build .`, `docker run --read-only --cap-drop=ALL` | Pass — `/health` → `200`, `/` → `200`, `/nope` → `404` |
 
 Everything in this table reflects the repository **as committed at the end of this
 audit**. The whole chain was re-run from a wiped `node_modules` after the last
-change.
+change. Rows marked *(reconciliation)* are from the cross-template pass on the same
+date, which closed findings 4 and 5.
 
 ## Dependency status
 
@@ -121,22 +126,33 @@ outdated package was taken.
    an active leak, but it is a needless one in a template every customer inherits.
    Added `.env`, `.env.*`, `*.local`, `.DS_Store`, and `_planning` to `.dockerignore`.
 
-4. **(low) Directory listings are served — NOT FIXED, recommendation below.**
+4. **(low) Directory listings are served — FIXED in the reconciliation pass.**
    `http.FileServer` auto-indexes any directory without an `index.html`. Confirmed
-   live against the built image: `GET /assets/` returns an HTML listing of every
+   live against the built image: `GET /assets/` returned an HTML listing of every
    hashed asset filename. This is information disclosure of low severity (the assets
-   are public anyway), but it is not behaviour a static site should have by default.
-   **Recommended action:** wrap the file server so directory requests return 404, or
-   serve `index.html` as a fallback. Deliberately not changed in this audit — it
-   alters the runtime behaviour of every generated app and deserves its own reviewed
-   diff rather than riding along on a dependency bump.
+   are public anyway), but it is not behaviour a static site should have by default —
+   and it upgrades every unreferenced draft file a customer drops in `public/` from
+   "unlinked" to "discoverable by browsing".
+   Originally deferred here on the grounds that it changes runtime behaviour for every
+   generated app and deserved its own reviewed diff. The cross-template pass is that
+   diff: `template-3d-web-app` found the same issue and fixed it, and shipping two
+   near-identical static servers with different behaviour is worse than either choice
+   on its own. **Action taken:** ported the `template-3d-web-app` fix — an
+   `indexOnlyDirs` wrapper around the `http.FileSystem` that returns `os.ErrNotExist`
+   for a directory with no `index.html`, so `http.FileServer` 404s instead of listing.
+   Verified live: `/assets/` and `/assets` both `404`, real hashed assets still `200`
+   with correct MIME types.
 
-5. **(low) No security response headers — NOT FIXED, recommendation below.**
-   Responses carry no `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`,
-   or `Content-Security-Policy`. **Recommended action:** set
-   `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`
-   unconditionally, and ship a commented-out CSP starter, since a real CSP depends on
-   what the customer's app loads. Same reasoning as finding 4 for not applying it here.
+5. **(low) No security response headers — FIXED in the reconciliation pass.**
+   Responses carried no `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`,
+   or `Content-Security-Policy`. **Action taken:** added a `securityHeaders` middleware
+   setting `X-Content-Type-Options: nosniff` and
+   `Referrer-Policy: strict-origin-when-cross-origin` on every response, matching
+   `template-3d-web-app` exactly.
+   `Content-Security-Policy` and `X-Frame-Options` are still deliberately **not** set,
+   also matching 3d-web-app: a useful CSP depends on where the customer's app loads
+   content from, and framing a generated site in another page is a legitimate use of
+   this template. Both are documented in the source as decisions for the app to make.
 
 6. **(low) Base-image currency — FIXED.** `node:22-alpine` is in maintenance LTS and
    `distroless/static-debian12` is one Debian release behind. Neither carried a known
@@ -161,13 +177,28 @@ outdated package was taken.
    file the moment a customer opened it in an editor. Added
    `"types": ["vite/client"]` to `tsconfig.json`. This also unblocks tracked item T4.
 
-9. **(low) The template ships no tests.** There is no `npm test` script and no Go
-   test files, so `npm test` errors and `go test ./...` reports "no test files". A
-   template with zero tests establishes a zero-test baseline for every app generated
-   from it. Not fixed — adding a test harness is a product decision, not a
-   maintenance one. See Open items.
+9. **(low) The template ships no tests — PARTIALLY FIXED in the reconciliation pass.**
+   There was no `npm test` script and no Go test files, so `npm test` errored and
+   `go test ./...` reported "no test files". A template with zero tests establishes a
+   zero-test baseline for every app generated from it. The **Go side is now covered**:
+   `server/main_test.go` came in with the findings 4/5 fix and asserts the health
+   contract, asset serving, listing suppression and the security headers. The
+   **frontend side is unchanged** — still no `npm test` script, because choosing a
+   frontend test runner is a product decision, not a maintenance one. See Open items.
 
-10. **(none) No secrets, in the tree or in history.** All 15 tracked files were
+10. **(low, accepted — not fixed by design) No `WriteTimeout` on the static server.**
+    The reconciliation pass added `ReadHeaderTimeout` (10s), `ReadTimeout` (30s) and
+    `IdleTimeout` (120s) — which is what closes the Slowloris hole — but deliberately
+    no `WriteTimeout`. A static site serves potentially large assets, and a client on
+    a slow mobile link is a legitimate long write that a `WriteTimeout` would truncate
+    mid-download, producing corrupt assets that look like a CDN fault. This is an
+    intentional split from the API templates (`template-container`,
+    `template-go-web-service`), which *do* set `WriteTimeout` because a JSON API can
+    bound its response writes; a file server cannot. Recorded so a future audit does
+    not "harmonise" the inconsistency in the wrong direction. `template-3d-web-app`
+    makes the same call for the same reason.
+
+11. **(none) No secrets, in the tree or in history.** All 15 tracked files were
     scanned along with every path that has ever existed in this repository. The only
     file ever deleted is `.github/workflows/ci.yml`, removed deliberately (the
     platform builds in-cluster and never reads GitHub Actions). No keys, tokens, or
@@ -182,21 +213,41 @@ outdated package was taken.
 - `tsconfig.json`: added `"types": ["vite/client"]` so `tsc --noEmit` passes.
 - Added this file.
 
+Added in the **cross-template reconciliation pass** (same date), closing findings 4
+and 5 by porting `template-3d-web-app`'s static-server hardening so the two
+near-identical Go static servers no longer ship different security postures:
+
+- `server/main.go`: restructured into a testable `newHandler(http.FileSystem)`; added
+  an `indexOnlyDirs` wrapper that 404s directories with no `index.html` (finding 4);
+  added a `securityHeaders` middleware setting `X-Content-Type-Options: nosniff` and
+  `Referrer-Policy: strict-origin-when-cross-origin` (finding 5); replaced the bare
+  `http.ListenAndServe` with an `http.Server` carrying `ReadHeaderTimeout` 10s,
+  `ReadTimeout` 30s and `IdleTimeout` 120s — and deliberately **no** `WriteTimeout`
+  (finding 10). CSP and `X-Frame-Options` left to the app, as in 3d-web-app.
+- `server/main_test.go`: **new** — covers `/health`, index and asset serving, the
+  directory-listing 404, and the two security headers. Closes open item 4; the Go
+  module now has tests rather than `[no test files]`.
+
 `onklave.yaml` was not touched. No page markup, styles, or README content was changed.
+The Dockerfile copies `server/go.mod` and `server/main.go` explicitly, so the new test
+file is correctly excluded from the image.
 
 ## Open items
 1. **Confirm the TypeScript 7 major.** Validated and safe as the template stands
    today, but it is the one judgement call here and a human may prefer a template to
    sit on the previous major. Revert = `"typescript": "^6"` + `npm install`.
-2. **Decide on findings 4 and 5** (directory listings, security headers). Both are
-   small changes to `server/main.go`, both change runtime behaviour for every
-   generated app, and both were deliberately left out of this audit's diff.
+2. ~~**Decide on findings 4 and 5** (directory listings, security headers).~~
+   **Closed** by the reconciliation pass — both fixed in `server/main.go` with tests,
+   matching `template-3d-web-app`. Nothing further needed. The one behaviour change to
+   communicate to existing generated apps: a directory URL with no `index.html` now
+   returns 404 instead of an auto-generated listing.
 3. **Tracked item T4** (`_planning/template-static-site-findings.md`): add a
    `"typecheck": "tsc --noEmit"` script and decide whether to fold it into `build`.
    This audit fixed the reason it could not be done — `tsc --noEmit` now passes.
-4. **Consider one Go test** for the `/health` handler, so `go test ./...` asserts
-   something rather than reporting "no test files", and so the platform's health
-   contract is covered by a test the customer inherits.
+4. ~~**Consider one Go test** for the `/health` handler.~~ **Closed** by the
+   reconciliation pass — `server/main_test.go` now covers the health contract, asset
+   serving, listing suppression and security headers. (Finding 9's point still stands
+   for the *frontend*: there is still no `npm test`.)
 5. **Automate this.** A quarterly manual pass is how the postcss advisory sat here in
    the first place. Either enable Renovate/Dependabot on the template repos or put a
    scheduled Onklave agent run on them, so the next high-severity advisory raises a
