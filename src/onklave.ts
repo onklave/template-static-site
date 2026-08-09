@@ -1,0 +1,32 @@
+// Onklave browser error tracking.
+//
+// On-platform, the site's own static server exposes the browser-safe config
+// (the error-tracking ingest key) at /__onklave/config.json — see
+// server/onklave.go. When it's there, the SDK starts and window.onerror +
+// unhandledrejection are captured into the project's error triage. Anywhere
+// else (local dev, previews without platform identity) the endpoint 404s and
+// this whole module is a silent no-op.
+import { OnklaveErrors } from '@onklave/errors';
+import { installGlobalHandlers } from '@onklave/errors/browser';
+
+export async function initOnklave(): Promise<void> {
+  try {
+    const res = await fetch('/__onklave/config.json');
+    if (!res.ok) return;
+    const cfg = (await res.json()) as {
+      errorsIngestKey?: string;
+      environment?: string;
+      release?: string;
+    };
+    if (!cfg.errorsIngestKey) return;
+    OnklaveErrors.init({
+      key: cfg.errorsIngestKey,
+      serviceName: 'web',
+      release: cfg.release || 'dev',
+      environment: cfg.environment || 'development',
+    });
+    installGlobalHandlers();
+  } catch {
+    // Never let telemetry break the page.
+  }
+}

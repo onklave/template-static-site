@@ -1,4 +1,9 @@
 import './style.css';
+import { initOnklave } from './onklave';
+
+// Fire-and-forget: error tracking starts when the platform serves a config,
+// and silently stays off everywhere else (see src/onklave.ts).
+void initOnklave();
 
 // Update the year in the footer, if present.
 const yearEl = document.querySelector<HTMLElement>('[data-year]');

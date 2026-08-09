@@ -16,7 +16,7 @@ RUN npm run build
 FROM golang:1.26-alpine AS server
 WORKDIR /src
 COPY server/go.mod ./
-COPY server/main.go ./
+COPY server/*.go ./
 RUN CGO_ENABLED=0 go build -trimpath -o /server .
 
 # 3. Minimal runtime: just the server binary + the built assets.
