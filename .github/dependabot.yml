@@ -1,0 +1,34 @@
+# Dependabot: grouped weekly updates. This repo has no CI matrix to burn,
+# so keeping dependencies and base images current is nearly free.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      npm:
+        patterns:
+          - '*'
+    open-pull-requests-limit: 2
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      docker:
+        patterns:
+          - '*'
+    open-pull-requests-limit: 2
+  - package-ecosystem: gomod
+    directory: /server
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      gomod:
+        patterns:
+          - '*'
+    open-pull-requests-limit: 2
