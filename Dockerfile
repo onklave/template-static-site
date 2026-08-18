@@ -5,7 +5,7 @@
 # writable paths, no privileged ports.
 
 # 1. Build the static assets (-> /app/dist).
-FROM node:24-alpine AS web
+FROM node:26-alpine AS web
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
