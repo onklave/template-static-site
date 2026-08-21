@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@onklave/errors": "^0.1.0"
+    "@onklave/errors": "^0.1.4"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
